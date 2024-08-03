@@ -4,105 +4,111 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- *
- * @author Miguel Sancho Peña
+ * This class manages a list of variables (cells) that may need to update their domains
+ * during forward checking in the Sudoku solver. If any variable has an empty domain 
+ * after updates, the domains must be restored before trying another value.
  * 
- * This class is needed as the forward checking algorithm needs to have a list of variables
- * that will possibly need updating their domains, in the case of the sudoku, each time we
- * operate on a cell, we need to add every cell in its row, column and matrix to the list of
- * candidates that will possibly need to update their domains if the values are not consistent.
- * If after executing the deletion of the domains, any variable has an empty domain, it means that 
- * the current solution is not consistent so all the domains must be restored before trying another value.
- * 
+ * Author: Venkatesh Mayakrishnan
  */
 public class DeleteQueue {
-        public ArrayList<Cell> checkDelete = new ArrayList<>(); // list of candidates(variables) to be deleted
-        public ArrayList<Cell> deletedList = new ArrayList<>(); // of deleted variables
+    private ArrayList<Cell> checkDelete = new ArrayList<>(); // List of candidates (variables) to check for deletion
+    private ArrayList<Cell> deletedList = new ArrayList<>(); // List of deleted variables
 
-        public void fcAddToDelete(Cell c) { // add to checkDelete (candidates)
-            fcAddRow(c);
-            fcAddColumn(c);
-            fcAddMatrix(c);
+    /**
+     * Adds the row, column, and matrix of the given cell to the checkDelete list.
+     */
+    public void fcAddToDelete(Cell c) {
+        fcAddRow(c);
+        fcAddColumn(c);
+        fcAddMatrix(c);
+    }
+
+    private void fcAddRow(Cell c) {
+        // Add all cells in the same row (excluding the current cell)
+        for (int i = 0; i < 9; i++) {
+            if (i != c.getCol()) {
+                checkDelete.add(new Cell(c.getRow(), i)); // Add row cells
+            }
         }
+    }
 
-        private void fcAddRow(Cell c) { // add row to checkDelete
-            for (int i = 0; i < 9; i++) {
-                if (i != c.col) {
-                    Cell newCell = new Cell(c.row, i);
-                    checkDelete.add(newCell);
+    private void fcAddColumn(Cell c) {
+        // Add all cells in the same column (excluding the current cell)
+        for (int i = 0; i < 9; i++) {
+            if (i != c.getRow()) {
+                checkDelete.add(new Cell(i, c.getCol())); // Add column cells
+            }
+        }
+    }
+
+    private void fcAddMatrix(Cell c) {
+        // Add all cells in the same 3x3 matrix (excluding the current cell)
+        int startRow = (c.getRow() / 3) * 3;
+        int startCol = (c.getCol() / 3) * 3;
+
+        for (int x = startRow; x < startRow + 3; x++) {
+            for (int y = startCol; y < startCol + 3; y++) {
+                if (x != c.getRow() || y != c.getCol()) {
+                    checkDelete.add(new Cell(x, y)); // Add matrix cells
                 }
             }
         }
+    }
 
-        private void fcAddColumn(Cell c) { // add column to checkDelete
-            for (int i = 0; i < 9; i++) {
-                if (i != c.row) {
-                    Cell newCell = new Cell(i, c.col);
-                    checkDelete.add(newCell);
-                }
+    /**
+     * Executes deletion of the specified value from the domains of affected cells.
+     */
+    public void executeDeletion(int value, HashMap<Cell, ArrayList<Integer>> map) {
+        for (Cell c : checkDelete) {
+            updateDomain(c, value, map);
+        }
+    }
+
+    private boolean fcDeleteValue(ArrayList<Integer> values, int number) {
+        // Checks if the value exists in the domain of a variable
+        return values.contains(number);
+    }
+
+    private void updateDomain(Cell c, int value, HashMap<Cell, ArrayList<Integer>> map) {
+        ArrayList<Integer> domain = map.get(c);
+        if (domain != null && fcDeleteValue(domain, value)) {
+            deletedList.add(c); // Keep track of deleted cells
+            domain.remove(Integer.valueOf(value)); // Remove the value from domain
+            map.put(c, domain); // Update the domain in the map
+        }
+    }
+
+    /**
+     * Checks if any variable has an empty domain.
+     */
+    public boolean checkForEmptyDomains(HashMap<Cell, ArrayList<Integer>> map) {
+        for (Cell c : deletedList) {
+            if (map.get(c).isEmpty()) {
+                return true; // Found an empty domain
             }
         }
+        return false; // No empty domains found
+    }
 
-        private void fcAddMatrix(Cell c) { // add matrix to checkDelete
-            float x1Calc = 3 * (c.row / 3);
-            float y1Calc = 3 * (c.col / 3);
-            int x1 = Math.round(x1Calc);
-            int y1 = Math.round(y1Calc);
-            int x2 = x1 + 2;
-            int y2 = y1 + 2;
-
-            for (int x = x1; x <= x2; x++) {
-                for (int y = y1; y <= y2; y++) {
-                    if (x != c.row && y != c.col) {
-                        Cell newCell = new Cell(x, y);
-                        checkDelete.add(newCell);
-                    }
-                }
-            }
-
-        }
-
-        public void executeDeletion(int value, HashMap<Cell, ArrayList<Integer>> map) {    // the deletions from the domains 
-            for (Cell c : checkDelete) {
-                updateDomain(c, value, map);
+    /**
+     * Restores the domains of the deleted variables.
+     */
+    public void restoreDomains(int value, HashMap<Cell, ArrayList<Integer>> map) {
+        for (Cell c : deletedList) {
+            ArrayList<Integer> domain = map.get(c);
+            if (domain != null) {
+                domain.add(value); // Restore the value to the domain
+                map.put(c, domain); // Update the domain in the map
             }
         }
+        deletedList.clear(); // Clear the deleted list after restoration
+    }
 
-        private boolean fcDeleteValue(ArrayList<Integer> values, int number) {  // Returns true if if it finds the value in the domain of a variable
-            for (int value : values) {
-                if (value == number) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void updateDomain(Cell c, int value, HashMap<Cell, ArrayList<Integer>> map) {  // Updates, if neccessary, the domain of a variable
-            ArrayList<Integer> dominio = map.get(c);
-            if (fcDeleteValue(dominio, value)) {
-                deletedList.add(c);
-                dominio.remove(Integer.valueOf(value));
-                map.put(c, dominio);
-            }
-        }
-
-        public boolean checkForEmptyDomains(HashMap<Cell, ArrayList<Integer>> map) {  // Iterates through the deleted list to check 
-            for (Cell c : deletedList) {                                              //if any variable has an empty domain
-                if (map.get(c).isEmpty()) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public void restoreDomains(int value, HashMap<Cell, ArrayList<Integer>> map) { // restore domains of the deleted variables
-            for (Cell c : deletedList) {
-                ArrayList<Integer> dominio = map.get(c);
-                dominio.add(value);
-                map.put(c, dominio);
-            }
-            deletedList.clear();
-        }
+    /**
+     * Clears the checkDelete list and the deletedList.
+     */
+    public void clear() {
+        checkDelete.clear(); // Clear the checkDelete list
+        deletedList.clear(); // Clear the deleted list
+    }
 }

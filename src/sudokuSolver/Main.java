@@ -1,20 +1,23 @@
 package sudokuSolver;
 
 /**
- *
- * @author Miguel Sancho Peña
+ * Main class to initiate the Sudoku game.
+ * 
+ * Author: Venkatesh Mayakrishnan
  */
 public class Main {
 
     /**
+     * Entry point of the Sudoku application.
+     *
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        Grid tablero = new Grid();
-        
-        //Creates and starts game interface
-        Interface interfaz = new Interface(tablero);
-        interfaz.setVisible(true);
-    }
+        // Create a new Sudoku grid
+        Grid sudokuGrid = new Grid();
 
+        // Create and start the game interface
+        SudokuInterface gameInterface = new SudokuInterface(sudokuGrid);
+        gameInterface.setVisible(true);
+    }
 }
